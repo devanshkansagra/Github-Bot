@@ -1,4 +1,4 @@
-# Git-Notifier-Bot 
+# Git-Repo-Tracker-Bot 
 
 This a version control discord bot which tracks the Github Repository. It is built using Node.js and discord.js API for interaction between Nodejs and Discord bot.
 
