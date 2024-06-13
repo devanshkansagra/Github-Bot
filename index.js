@@ -4,17 +4,20 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 
 dotenv.config({path: "./.env"});
 
-let repoUrl = '';
-
 client.on('messageCreate', (message) => {
     if(message.author.bot) return;
 
-    if(message.content.startsWith("track")) {
-        let url = message.content.split("track")[1];
-        repoUrl = url;
-        message.reply({
-            content: "Tracking the github repository: " + url
-        });
+    if(message.content.startsWith("!track")) {
+        
+    }
+    else if(message.content.startsWith("!getCommits")) {
+
+    }
+    else if(message.content.startsWith("!getIssues")) {
+
+    }
+    else if(message.content.startsWith("!getPullRequests")) {
+
     }
     else if(message.content === 'Hi') {
         message.reply({
