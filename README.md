@@ -11,10 +11,10 @@ This a version control discord bot which tracks the Github Repository. It is bui
 
 ## Commands for interaction
 
-- `track` Tracks the Repository
-- `getCommits` List down all the commits of the tracking repository 
-- `getPullRequests` List down all the pull requests of the tracking repository.
-- `getIssues` List down all the issues of the tracking repository
+- `!track` Tracks the Repository
+- `!getCommits` List down all the commits of the tracking repository 
+- `!getPullRequests` List down all the pull requests of the tracking repository.
+- `!getIssues` List down all the issues of the tracking repository
 
 ## Prerequisites
 
