@@ -4,14 +4,16 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const axios = require('axios');
 const User = require('./models/user');
+const { Octokit } = require("@octokit/rest");
 
-const { Client, GatewayIntentBits } = require('discord.js')
+const { Client, GatewayIntentBits } = require('discord.js');
+const TokenDoc = require('./models/tokenSchema');
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 const app = express();
 const corsOptions = {
     origin: 'http://api.github.com/',
-    methods: 'GET',
+    methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
@@ -27,8 +29,76 @@ mongoose.connect(DB).then(() => {
     console.log(error);
 })
 
+client.once('ready', () => {
+    console.log("Client is ready");
+})
+
+let GITHUB_ACCESS_TOKEN = ""
+
+const createWebHook = async (channelId, name) => {
+    try {
+        const channel = await client.channels.fetch(channelId);
+        const webhook = await channel.createWebhook({ name: name });
+        if (webhook) {
+            return webhook.url;
+        }
+    } catch (error) {
+        console.log("Error: ", error);
+    }
+}
+
+const linkWithGithub = async (gitToken, owner, repoName, webhookURL) => {
+    const octokit = new Octokit({ auth: gitToken });
+    try {
+        const link = await octokit.request("POST /repos/{owner}/{repo}/hooks", {
+            owner: owner,
+            repo: repoName,
+            events: [
+                'push',
+                'pull_request',
+            ],
+            config: {
+                url: webhookURL,
+                content_type: 'json',
+                insecure_ssl: '0'
+            },
+        })
+        if(link) {
+            console.log("Integration successfull");
+        }
+    } catch (error) {
+        console.log(error);
+    }
+}
+
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
+
+    if (message.content.startsWith("!settoken")) {
+        const token = message.content.split(' ')[1];
+        GITHUB_ACCESS_TOKEN = token
+        const guildId = message.guildId;
+
+        const validateToken = await TokenDoc.findOne({ accessToken: GITHUB_ACCESS_TOKEN });
+        if (validateToken) {
+            message.reply({ content: "Token is set already" });
+        }
+        else {
+            const newToken = new TokenDoc({ guildId: guildId, accessToken: GITHUB_ACCESS_TOKEN });
+            const saveToken = await newToken.save();
+            if (saveToken) {
+                message.reply({
+                    content: "Github access token is set successfully, you are authorized!"
+                })
+            }
+            else {
+                message.reply({
+                    content: "Unable to set the access token"
+                })
+            }
+
+        }
+    }
 
     if (message.content.startsWith("!track")) {
         let repoUrl = message.content.split(' ')[1];
@@ -36,22 +106,30 @@ client.on('messageCreate', async (message) => {
         let channelId = message.channelId;
         let repoName = repoUrl.split('/').pop();
 
+        const webhook = await createWebHook(channelId, repoName);
+
         const owner = new URL(repoUrl).pathname.split('/')[1];
 
-
         const validateUrl = await User.findOne({ repoUrl: repoUrl });
-        if (validateUrl) {
+
+        const isAuthenticated = await TokenDoc.findOne({ accessToken: GITHUB_ACCESS_TOKEN }, { guildId: guildId })
+
+        const link = await linkWithGithub(GITHUB_ACCESS_TOKEN, owner, repoName, webhook);
+        if(link) {
+            console.log("Integrated with github");
+        }
+
+        if (!isAuthenticated) {
+            message.reply({ content: "Not authenticated!. Please use !settoken <GITHUB_PERSONAL_ACCESS_TOKEN> command to authorize" })
+        }
+        else if (validateUrl) {
             message.reply({
                 content: "This repository is already being tracked"
             })
         }
-        else {
-            console.log("Repo Url:", repoUrl);
-            console.log("Guild Id:", guildId);
-            console.log("Repo Name:", repoName);
-            console.log("Owner: ", owner);
 
-            const newUser = new User({ guildId: guildId, channelId: channelId, repoUrl: repoUrl, repoName: repoName, owner: owner })
+        else {
+            const newUser = new User({ guildId: guildId, channelId: channelId, repoUrl: repoUrl, repoName: repoName, owner: owner, webHook: webhook })
 
             const userSave = await newUser.save();
 
@@ -65,33 +143,37 @@ client.on('messageCreate', async (message) => {
     }
     else if (message.content.startsWith("!getCommits")) {
 
-        let repoName = message.content.split(' ')[1];
-        let repo = await User.findOne({ repoName: repoName });
-        if (repo) {
-            let owner = repo.owner;
-            const response = await axios.get(`https://api.github.com/repos/${owner}/${repoName}/commits`)
-            const data = await response.data;
-            if (response) {
-                let commits = ''
-                if (data.length > 0) {
-                    data.forEach((entity) => {
-                        commits += `Commit Message: ${entity.commit.message} \nAuthor: ${entity.author.login}\n\n`;
-                    })
-                }
+        try {
+            let repoName = message.content.split(' ')[1];
+            let repo = await User.findOne({ repoName: repoName });
+            if (repo) {
+                let owner = repo.owner;
+                const response = await axios.get(`https://api.github.com/repos/${owner}/${repoName}/commits`)
+                const data = await response.data;
+                if (response) {
+                    let commits = ''
+                    if (data.length > 0) {
+                        data.forEach((entity) => {
+                            commits += `Commit Message: ${entity.commit.message} \nAuthor: ${entity.author.login}\n\n`;
+                        })
+                    }
 
-                if (commits.length <= 2000) {
-                    message.reply({ content: commits });
-                }
-                else {
-                    const chunks = commits.match(/[\s\S]{1,2000}/g);
-                    for (const chunk of chunks) {
-                        await message.reply({ content: chunk })
+                    if (commits.length <= 2000) {
+                        message.reply({ content: commits });
+                    }
+                    else {
+                        const chunks = commits.match(/[\s\S]{1,2000}/g);
+                        for (const chunk of chunks) {
+                            await message.reply({ content: chunk })
+                        }
                     }
                 }
             }
-        }
-        else {
-            message.reply({ content: "No Repository found!!!" });
+            else {
+                message.reply({ content: "No Repository found!!!" });
+            }
+        } catch (error) {
+            console.log(error);
         }
 
     }

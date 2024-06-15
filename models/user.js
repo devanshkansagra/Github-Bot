@@ -20,6 +20,10 @@ const userSchema = new mongoose.Schema({
     owner: {
         type: String,
         required: true,
+    },
+    webHook: {
+        type: String,
+        required: true
     }
 })
 
