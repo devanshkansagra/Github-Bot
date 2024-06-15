@@ -11,6 +11,7 @@ const TokenDoc = require('./models/tokenSchema');
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
 const app = express();
+
 const corsOptions = {
     origin: 'http://api.github.com/',
     methods: ['GET', 'POST'],
@@ -40,11 +41,32 @@ const createWebHook = async (channelId, name) => {
         const channel = await client.channels.fetch(channelId);
         const webhook = await channel.createWebhook({ name: name });
         if (webhook) {
-            return webhook.url;
+            let { url, id } = webhook;
+            return { url, id };
         }
     } catch (error) {
         console.log("Error: ", error);
     }
+}
+
+const deleteWebHook = async (webhookId, guildId) => {
+    const guild = await client.guilds.cache.get(guildId);
+    const webhooks = await guild.fetchWebhooks();
+
+    try {
+        const webhook = webhooks.get(webhookId);
+        if(webhook) {
+            const deleteHook = await webhook.delete();
+            return deleteHook;
+        }
+        else {
+            console.log("Webhook not found");
+        }
+    }
+    catch(error) {
+        console.log(error);
+    }
+
 }
 
 const linkWithGithub = async (gitToken, owner, repoName, webhookURL) => {
@@ -56,6 +78,7 @@ const linkWithGithub = async (gitToken, owner, repoName, webhookURL) => {
             events: [
                 'push',
                 'pull_request',
+                'issues'
             ],
             config: {
                 url: webhookURL,
@@ -63,12 +86,16 @@ const linkWithGithub = async (gitToken, owner, repoName, webhookURL) => {
                 insecure_ssl: '0'
             },
         })
-        if(link) {
+        if (link) {
             console.log("Integration successfull");
         }
     } catch (error) {
         console.log(error);
     }
+}
+
+const unlinkWithGithub = async () => {
+
 }
 
 client.on('messageCreate', async (message) => {
@@ -106,39 +133,44 @@ client.on('messageCreate', async (message) => {
         let channelId = message.channelId;
         let repoName = repoUrl.split('/').pop();
 
-        const webhook = await createWebHook(channelId, repoName);
-
         const owner = new URL(repoUrl).pathname.split('/')[1];
 
-        const validateUrl = await User.findOne({ repoUrl: repoUrl });
+        try {
+            const webhook = await createWebHook(channelId, repoName);
 
-        const isAuthenticated = await TokenDoc.findOne({ accessToken: GITHUB_ACCESS_TOKEN }, { guildId: guildId })
+            const validateUrl = await User.findOne({ repoUrl: repoUrl });
 
-        const link = await linkWithGithub(GITHUB_ACCESS_TOKEN, owner, repoName, webhook);
-        if(link) {
-            console.log("Integrated with github");
-        }
+            const isAuthenticated = await TokenDoc.findOne({ accessToken: GITHUB_ACCESS_TOKEN }, { guildId: guildId })
 
-        if (!isAuthenticated) {
-            message.reply({ content: "Not authenticated!. Please use !settoken <GITHUB_PERSONAL_ACCESS_TOKEN> command to authorize" })
-        }
-        else if (validateUrl) {
-            message.reply({
-                content: "This repository is already being tracked"
-            })
-        }
+            const link = await linkWithGithub(GITHUB_ACCESS_TOKEN, owner, repoName, webhook.url);
 
-        else {
-            const newUser = new User({ guildId: guildId, channelId: channelId, repoUrl: repoUrl, repoName: repoName, owner: owner, webHook: webhook })
+            if (link) {
+                console.log("Integrated with github");
+            }
 
-            const userSave = await newUser.save();
-
-            if (userSave) {
+            if (!isAuthenticated) {
+                message.reply({ content: "Not authenticated!. Please use !settoken <GITHUB_PERSONAL_ACCESS_TOKEN> command to authorize" })
+            }
+            else if (validateUrl) {
                 message.reply({
-                    content: "Tracking the repository: " + repoUrl
+                    content: "This repository is already being tracked"
                 })
             }
 
+            else {
+                const newUser = new User({ guildId: guildId, channelId: channelId, repoUrl: repoUrl, repoName: repoName, owner: owner, webHook: webhook.id })
+
+                const userSave = await newUser.save();
+
+                if (userSave) {
+                    message.reply({
+                        content: "Tracking the repository: " + repoName
+                    })
+                }
+
+            }
+        } catch (error) {
+            console.log(error);
         }
     }
     else if (message.content.startsWith("!getCommits")) {
@@ -241,6 +273,29 @@ client.on('messageCreate', async (message) => {
             message.reply({
                 content: "No Repository found!!!"
             })
+        }
+    }
+    else if (message.content.startsWith('!untrack')) {
+        try {
+            
+            const repoName = message.content.split(' ')[1];
+            const guildId = message.guildId;
+            try {
+                const repo = await User.findOne({repoName: repoName, guildId: guildId});
+                if(repo) {
+                    const webhookId = repo.webHook;
+    
+                    await deleteWebHook(webhookId, guildId);
+
+                    await User.deleteOne({webHook: webhookId})
+                    message.reply({content: "Repository is untracked"})
+                }
+            } catch (error) {
+                console.log(error);
+            }
+
+        } catch (error) {
+
         }
     }
     else if (message.content === 'Hi') {
