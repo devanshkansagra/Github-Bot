@@ -37,6 +37,10 @@ client.once('ready', () => {
     console.log("Client is ready");
 })
 
+app.get('/', (req, res) => {
+    res.send("Hello world");
+})
+
 
 const createWebHook = async (channelId, name) => {
     try {
@@ -335,6 +339,7 @@ client.on('messageCreate', async (message) => {
 })
 
 client.login(process.env.RESET_TOKEN);
-
-module.exports = app;
+app.listen(3000, () => {
+    console.log("Server started");
+})
 
