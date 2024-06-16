@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const axios = require('axios');
 const User = require('./models/user');
 const { Octokit } = require("@octokit/rest");
+const bodyParser = require('body-parser');
 
 const { Client, GatewayIntentBits } = require('discord.js');
 const TokenDoc = require('./models/tokenSchema');
@@ -19,6 +20,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(express.json());
+app.use(bodyParser.json());
 
 dotenv.config({ path: "./.env" });
 
@@ -34,7 +37,6 @@ client.once('ready', () => {
     console.log("Client is ready");
 })
 
-let GITHUB_ACCESS_TOKEN = ""
 
 const createWebHook = async (channelId, name) => {
     try {
@@ -46,6 +48,20 @@ const createWebHook = async (channelId, name) => {
         }
     } catch (error) {
         console.log("Error: ", error);
+    }
+}
+
+const getGithubWebHook = async (gitToken, owner, repoName) => {
+    const octokit = new Octokit({auth: gitToken});
+    try {
+        const response = await octokit.request('GET /repos/{owner}/{repo}/hooks', {
+            repo: repoName,
+            owner: owner,
+        })
+        return response.data;
+    }
+    catch(error) {
+        console.log(error);
     }
 }
 
@@ -75,16 +91,18 @@ const linkWithGithub = async (gitToken, owner, repoName, webhookURL) => {
         const link = await octokit.request("POST /repos/{owner}/{repo}/hooks", {
             owner: owner,
             repo: repoName,
+            name: 'web',
             events: [
                 'push',
                 'pull_request',
                 'issues'
             ],
             config: {
-                url: webhookURL,
+                url: webhookURL + '/github',
                 content_type: 'json',
                 insecure_ssl: '0'
             },
+            
         })
         if (link) {
             console.log("Integration successfull");
@@ -94,8 +112,13 @@ const linkWithGithub = async (gitToken, owner, repoName, webhookURL) => {
     }
 }
 
-const unlinkWithGithub = async () => {
-
+const unlinkWithGithub = async (gitToken, owner, repoName, hookId) => {
+    const octokit = new Octokit({auth: gitToken});
+    return await octokit.request('DELETE /repos/{owner}/{repo}/hooks/{hook_id}', {
+        repo: repoName,
+        owner: owner,
+        hook_id: hookId
+    })
 }
 
 client.on('messageCreate', async (message) => {
@@ -103,15 +126,15 @@ client.on('messageCreate', async (message) => {
 
     if (message.content.startsWith("!settoken")) {
         const token = message.content.split(' ')[1];
-        GITHUB_ACCESS_TOKEN = token
+
         const guildId = message.guildId;
 
-        const validateToken = await TokenDoc.findOne({ accessToken: GITHUB_ACCESS_TOKEN });
+        const validateToken = await TokenDoc.findOne({ accessToken: token });
         if (validateToken) {
             message.reply({ content: "Token is set already" });
         }
         else {
-            const newToken = new TokenDoc({ guildId: guildId, accessToken: GITHUB_ACCESS_TOKEN });
+            const newToken = new TokenDoc({ guildId: guildId, accessToken: token });
             const saveToken = await newToken.save();
             if (saveToken) {
                 message.reply({
@@ -136,17 +159,10 @@ client.on('messageCreate', async (message) => {
         const owner = new URL(repoUrl).pathname.split('/')[1];
 
         try {
-            const webhook = await createWebHook(channelId, repoName);
 
             const validateUrl = await User.findOne({ repoUrl: repoUrl });
 
-            const isAuthenticated = await TokenDoc.findOne({ accessToken: GITHUB_ACCESS_TOKEN }, { guildId: guildId })
-
-            const link = await linkWithGithub(GITHUB_ACCESS_TOKEN, owner, repoName, webhook.url);
-
-            if (link) {
-                console.log("Integrated with github");
-            }
+            const isAuthenticated = await TokenDoc.findOne({ guildId: guildId })
 
             if (!isAuthenticated) {
                 message.reply({ content: "Not authenticated!. Please use !settoken <GITHUB_PERSONAL_ACCESS_TOKEN> command to authorize" })
@@ -158,6 +174,13 @@ client.on('messageCreate', async (message) => {
             }
 
             else {
+                const webhook = await createWebHook(channelId, repoName);
+
+                const link = await linkWithGithub(isAuthenticated.accessToken, owner, repoName, webhook.url);
+                if (link) {
+                    console.log("Integrated with github");
+                }
+
                 const newUser = new User({ guildId: guildId, channelId: channelId, repoUrl: repoUrl, repoName: repoName, owner: owner, webHook: webhook.id })
 
                 const userSave = await newUser.save();
@@ -282,10 +305,15 @@ client.on('messageCreate', async (message) => {
             const guildId = message.guildId;
             try {
                 const repo = await User.findOne({repoName: repoName, guildId: guildId});
+                const token = await TokenDoc.findOne({guildId: guildId});
                 if(repo) {
                     const webhookId = repo.webHook;
-    
+
+                    const githubHookId = await getGithubWebHook(token.accessToken, repo.owner, repoName);
+            
                     await deleteWebHook(webhookId, guildId);
+
+                    await unlinkWithGithub(token.accessToken, repo.owner, repoName, githubHookId[0].id);
 
                     await User.deleteOne({webHook: webhookId})
                     message.reply({content: "Repository is untracked"})
