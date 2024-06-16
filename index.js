@@ -336,3 +336,5 @@ client.on('messageCreate', async (message) => {
 
 client.login(process.env.RESET_TOKEN);
 
+module.exports = app;
+
