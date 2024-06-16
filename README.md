@@ -11,6 +11,7 @@ This a version control discord bot which tracks the Github Repository. It is bui
 
 ## Commands for interaction
 
+- `!settoken <github_personal_access_token>` Authorize the github repository
 - `!track <github_repo_url>` Tracks the Repository
 - `!getCommits <github_repo_name>` List down all the commits of the tracking repository 
 - `!getPullRequests <github_repo_name>` List down all the pull requests of the tracking repository.
