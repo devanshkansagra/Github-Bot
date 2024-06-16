@@ -27,7 +27,11 @@ dotenv.config({ path: "./.env" });
 
 const DB = process.env.DATABASE;
 
-mongoose.connect(DB).then(() => {
+mongoose.connect(DB, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    connectTimeoutMS: 30000,
+}).then(() => {
     console.log("Databse connected Successfully")
 }).catch((error) => {
     console.log(error);
@@ -38,7 +42,7 @@ client.once('ready', () => {
 })
 
 
-app.get('/',(req,res) => {
+app.get('/', (req, res) => {
     res.send("Hello world");
 })
 const createWebHook = async (channelId, name) => {
@@ -55,7 +59,7 @@ const createWebHook = async (channelId, name) => {
 }
 
 const getGithubWebHook = async (gitToken, owner, repoName) => {
-    const octokit = new Octokit({auth: gitToken});
+    const octokit = new Octokit({ auth: gitToken });
     try {
         const response = await octokit.request('GET /repos/{owner}/{repo}/hooks', {
             repo: repoName,
@@ -63,7 +67,7 @@ const getGithubWebHook = async (gitToken, owner, repoName) => {
         })
         return response.data;
     }
-    catch(error) {
+    catch (error) {
         console.log(error);
     }
 }
@@ -74,7 +78,7 @@ const deleteWebHook = async (webhookId, guildId) => {
 
     try {
         const webhook = webhooks.get(webhookId);
-        if(webhook) {
+        if (webhook) {
             const deleteHook = await webhook.delete();
             return deleteHook;
         }
@@ -82,7 +86,7 @@ const deleteWebHook = async (webhookId, guildId) => {
             console.log("Webhook not found");
         }
     }
-    catch(error) {
+    catch (error) {
         console.log(error);
     }
 
@@ -105,7 +109,7 @@ const linkWithGithub = async (gitToken, owner, repoName, webhookURL) => {
                 content_type: 'json',
                 insecure_ssl: '0'
             },
-            
+
         })
         if (link) {
             console.log("Integration successfull");
@@ -116,7 +120,7 @@ const linkWithGithub = async (gitToken, owner, repoName, webhookURL) => {
 }
 
 const unlinkWithGithub = async (gitToken, owner, repoName, hookId) => {
-    const octokit = new Octokit({auth: gitToken});
+    const octokit = new Octokit({ auth: gitToken });
     return await octokit.request('DELETE /repos/{owner}/{repo}/hooks/{hook_id}', {
         repo: repoName,
         owner: owner,
@@ -303,23 +307,23 @@ client.on('messageCreate', async (message) => {
     }
     else if (message.content.startsWith('!untrack')) {
         try {
-            
+
             const repoName = message.content.split(' ')[1];
             const guildId = message.guildId;
             try {
-                const repo = await User.findOne({repoName: repoName, guildId: guildId});
-                const token = await TokenDoc.findOne({guildId: guildId});
-                if(repo) {
+                const repo = await User.findOne({ repoName: repoName, guildId: guildId });
+                const token = await TokenDoc.findOne({ guildId: guildId });
+                if (repo) {
                     const webhookId = repo.webHook;
 
                     const githubHookId = await getGithubWebHook(token.accessToken, repo.owner, repoName);
-            
+
                     await deleteWebHook(webhookId, guildId);
 
                     await unlinkWithGithub(token.accessToken, repo.owner, repoName, githubHookId[0].id);
 
-                    await User.deleteOne({webHook: webhookId})
-                    message.reply({content: "Repository is untracked"})
+                    await User.deleteOne({ webHook: webhookId })
+                    message.reply({ content: "Repository is untracked" })
                 }
             } catch (error) {
                 console.log(error);
