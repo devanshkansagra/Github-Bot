@@ -16,7 +16,7 @@ This a version control discord bot which tracks the Github Repository. It is bui
 - `!getCommits <github_repo_name>` List down all the commits of the tracking repository 
 - `!getPullRequests <github_repo_name>` List down all the pull requests of the tracking repository.
 - `!getIssues <github_repo_name>` List down all the issues of the tracking repository
-- `!untrack <github_repo_name>` List down all the issues of the tracking repository
+- `!untrack <github_repo_name>` Untracks the tracking github repository
 
 ## Prerequisites
 
