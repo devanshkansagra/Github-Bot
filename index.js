@@ -341,4 +341,4 @@ client.login(process.env.RESET_TOKEN);
 app.listen(3000, () => {
     console.log("Server started");
 })
-
+module.exports = app;
