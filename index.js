@@ -25,7 +25,7 @@ app.use(bodyParser.json());
 
 dotenv.config({ path: "./.env" });
 
-const DB = "mongodb://localhost:27017/discordGitBot" || process.env.DATABASE;
+const DB = process.env.DATABASE;
 
 mongoose.connect(DB).then(() => {
     console.log("Databse connected Successfully")
