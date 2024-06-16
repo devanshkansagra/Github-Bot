@@ -37,7 +37,9 @@ client.once('ready', () => {
     console.log("Client is ready");
 })
 
-
+app.get('/',(req, res) => {
+    res.send("Hello world")
+})
 const createWebHook = async (channelId, name) => {
     try {
         const channel = await client.channels.fetch(channelId);
