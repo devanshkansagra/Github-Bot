@@ -49,7 +49,7 @@ const linkWithGithub = async (gitToken, owner, repoName, webhookURL) => {
       owner: owner,
       repo: repoName,
       name: "web",
-      events: ["push", "pull_request", "issues"],
+      events: ["*"],
       config: {
         url: webhookURL + "/github",
         content_type: "json",
