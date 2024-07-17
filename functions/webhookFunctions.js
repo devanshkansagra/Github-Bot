@@ -74,9 +74,9 @@ const unlinkWithGithub = async (gitToken, owner, repoName, hookId) => {
 };
 
 module.exports = {
-    createWebHook,
-    deleteWebHook,
-    linkWithGithub,
-    getGithubWebHook,
-    unlinkWithGithub
-}
+  createWebHook,
+  deleteWebHook,
+  linkWithGithub,
+  getGithubWebHook,
+  unlinkWithGithub,
+};
