@@ -1,0 +1,23 @@
+name: Prettier Format Check
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Prettier format check
+        run: npx prettier --check .
+
+      - name: Fail if Prettier check fails
+        if: failure()
+        run: exit 1

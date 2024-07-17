@@ -114,7 +114,7 @@ client.on("messageCreate", async (message) => {
           isAuthenticated.accessToken,
           owner,
           repoName,
-          webhook.url
+          webhook.url,
         );
         if (link) {
           console.log("Integrated with github");
@@ -147,7 +147,7 @@ client.on("messageCreate", async (message) => {
       if (repo) {
         let owner = repo.owner;
         const response = await axios.get(
-          `https://api.github.com/repos/${owner}/${repoName}/commits`
+          `https://api.github.com/repos/${owner}/${repoName}/commits`,
         );
         const data = await response.data;
         if (response) {
@@ -180,7 +180,7 @@ client.on("messageCreate", async (message) => {
     if (repo) {
       let owner = repo.owner;
       const response = await axios.get(
-        `https://api.github.com/repos/${owner}/${repoName}/issues`
+        `https://api.github.com/repos/${owner}/${repoName}/issues`,
       );
       const data = await response.data;
       let issues = "";
@@ -213,7 +213,7 @@ client.on("messageCreate", async (message) => {
       if (repo) {
         let owner = repo.owner;
         const response = await axios.get(
-          `https://api.github.com/repos/${owner}/${repoName}/pulls`
+          `https://api.github.com/repos/${owner}/${repoName}/pulls`,
         );
         const data = await response.data;
         let prs = "";
@@ -259,7 +259,7 @@ client.on("messageCreate", async (message) => {
           const githubHookId = await getGithubWebHook(
             token.accessToken,
             repo.owner,
-            repoName
+            repoName,
           );
 
           await deleteWebHook(client, webhookId, guildId);
@@ -268,7 +268,7 @@ client.on("messageCreate", async (message) => {
             token.accessToken,
             repo.owner,
             repoName,
-            githubHookId[0].id
+            githubHookId[0].id,
           );
 
           await User.deleteOne({ webHook: webhookId });
