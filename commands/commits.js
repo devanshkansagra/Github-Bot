@@ -7,7 +7,7 @@ const commits = new SlashCommandBuilder()
     option
       .setName("repository")
       .setDescription("Username/RepositoryName")
-      .setRequired(true)
+      .setRequired(true),
   );
 
 module.exports = commits.toJSON();

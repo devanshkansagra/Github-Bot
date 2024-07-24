@@ -16,8 +16,8 @@ const {
 } = require("./functions/webhookFunctions");
 
 const commits = require("./commands/commits");
-const pulls = require('./commands/pulls')
-const issues = require('./commands/issues');
+const pulls = require("./commands/pulls");
+const issues = require("./commands/issues");
 
 const { REST, Routes, Client, GatewayIntentBits } = require("discord.js");
 const TokenDoc = require("./models/tokenSchema");
@@ -73,7 +73,7 @@ client.on("interactionCreate", async (interaction) => {
         let repo = await User.findOne({ repoName: repository });
         if (repo) {
           const response = await axios.get(
-            `https://api.github.com/repos/${repoName}/commits`
+            `https://api.github.com/repos/${repoName}/commits`,
           );
           const data = await response.data;
           let commitList = "";
@@ -104,7 +104,7 @@ client.on("interactionCreate", async (interaction) => {
         let repo = await User.findOne({ repoName: repository });
         if (repo) {
           const response = await axios.get(
-            `https://api.github.com/repos/${repoName}/pulls`
+            `https://api.github.com/repos/${repoName}/pulls`,
           );
           const data = await response.data;
           let prs = "";
@@ -139,7 +139,7 @@ client.on("interactionCreate", async (interaction) => {
         let repo = await User.findOne({ repoName: repository });
         if (repo) {
           const response = await axios.get(
-            `https://api.github.com/repos/${repoName}/issues`
+            `https://api.github.com/repos/${repoName}/issues`,
           );
           const data = await response.data;
           let issuesList = "";
@@ -224,7 +224,7 @@ client.on("messageCreate", async (message) => {
           isAuthenticated.accessToken,
           owner,
           repoName,
-          webhook.url
+          webhook.url,
         );
         if (link) {
           console.log("Integrated with github");
@@ -266,7 +266,7 @@ client.on("messageCreate", async (message) => {
           const githubHookId = await getGithubWebHook(
             token.accessToken,
             repo.owner,
-            repoName
+            repoName,
           );
 
           await deleteWebHook(client, webhookId, guildId);
@@ -275,7 +275,7 @@ client.on("messageCreate", async (message) => {
             token.accessToken,
             repo.owner,
             repoName,
-            githubHookId[0].id
+            githubHookId[0].id,
           );
 
           await User.deleteOne({ webHook: webhookId });
@@ -302,7 +302,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.RESET_TOKEN);
       Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
       {
         body: commands,
-      }
+      },
     );
     client.login(process.env.RESET_TOKEN);
   } catch (err) {
