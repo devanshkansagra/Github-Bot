@@ -15,7 +15,11 @@ const {
   unlinkWithGithub,
 } = require("./functions/webhookFunctions");
 
-const { Client, GatewayIntentBits } = require("discord.js");
+const commits = require("./commands/commits");
+const pulls = require('./commands/pulls')
+const issues = require('./commands/issues');
+
+const { REST, Routes, Client, GatewayIntentBits } = require("discord.js");
 const TokenDoc = require("./models/tokenSchema");
 const client = new Client({
   intents: [
@@ -56,6 +60,112 @@ client.once("ready", () => {
 
 app.get("/", (req, res) => {
   res.send("Hello world");
+});
+
+client.on("interactionCreate", async (interaction) => {
+  if (interaction.isChatInputCommand()) {
+    if (interaction.commandName === "commits") {
+      try {
+        const repository = interaction.options.data[0].value
+          .split("/")[1]
+          .toString();
+        const repoName = interaction.options.data[0].value.toString();
+        let repo = await User.findOne({ repoName: repository });
+        if (repo) {
+          const response = await axios.get(
+            `https://api.github.com/repos/${repoName}/commits`
+          );
+          const data = await response.data;
+          let commitList = "";
+          data.forEach((entity) => {
+            commitList += `commit ${entity.sha}\nCommit Message: ${entity.commit.message}\nAuthor: ${entity.commit.author.name}\nDate: ${entity.commit.committer.date}\n\n`;
+          });
+          if (commitList.length <= 2000) {
+            interaction.reply(commitList);
+          } else {
+            const chunks = commitList.match(/[\s\S]{1,2000}/g);
+            for (const chunk of chunks) {
+              await interaction.reply(chunk);
+            }
+          }
+        } else {
+          interaction.reply("No repository found!!!");
+        }
+      } catch (error) {
+        console.log("Error", error);
+      }
+    }
+    if (interaction.commandName === "pulls") {
+      try {
+        const repository = interaction.options.data[0].value
+          .split("/")[1]
+          .toString();
+        const repoName = interaction.options.data[0].value.toString();
+        let repo = await User.findOne({ repoName: repository });
+        if (repo) {
+          const response = await axios.get(
+            `https://api.github.com/repos/${repoName}/pulls`
+          );
+          const data = await response.data;
+          let prs = "";
+          if (data) {
+            if (data.length > 0) {
+              data.forEach((entity) => {
+                prs += `Pull Request number: ${entity.number} \nPull Request Title: ${entity.title} \nPull Request Body: ${entity.body} \nPull Request State: ${entity.state}\n\n`;
+              });
+            }
+            if (prs.length <= 2000) {
+              interaction.reply(prs);
+            } else {
+              const chunks = prs.match(/[\s\S]{1,2000}/g);
+              for (const chunk of chunks) {
+                await interaction.reply(chunk);
+              }
+            }
+          }
+        } else {
+          interaction.reply("No repository found!!!");
+        }
+      } catch (error) {
+        console.log("Error", error);
+      }
+    }
+    if (interaction.commandName === "issues") {
+      try {
+        const repository = interaction.options.data[0].value
+          .split("/")[1]
+          .toString();
+        const repoName = interaction.options.data[0].value.toString();
+        let repo = await User.findOne({ repoName: repository });
+        if (repo) {
+          const response = await axios.get(
+            `https://api.github.com/repos/${repoName}/issues`
+          );
+          const data = await response.data;
+          let issuesList = "";
+          if (data) {
+            if (data.length > 0) {
+              data.forEach((entity) => {
+                issuesList += `Created By: ${entity.user.login}\nIssue number: ${entity.number} \nIssue Title: ${entity.title} \nIssue Body: ${entity.body}\nCreated At: ${entity.created_at}\nUpdated At: ${entity.updated_at}\nState: ${entity.state}\n\n`;
+              });
+            }
+            if (issuesList.length <= 2000) {
+              interaction.reply(issuesList);
+            } else {
+              const chunks = issuesList.match(/[\s\S]{1,2000}/g);
+              for (const chunk of chunks) {
+                await interaction.reply(chunk);
+              }
+            }
+          }
+        } else {
+          interaction.reply("No repository found!!!");
+        }
+      } catch (error) {
+        console.log("Error", error);
+      }
+    }
+  }
 });
 
 client.on("messageCreate", async (message) => {
@@ -114,7 +224,7 @@ client.on("messageCreate", async (message) => {
           isAuthenticated.accessToken,
           owner,
           repoName,
-          webhook.url,
+          webhook.url
         );
         if (link) {
           console.log("Integrated with github");
@@ -140,109 +250,6 @@ client.on("messageCreate", async (message) => {
     } catch (error) {
       console.log(error);
     }
-  } else if (message.content.startsWith("!getCommits")) {
-    try {
-      let repoName = message.content.split(" ")[1];
-      let repo = await User.findOne({ repoName: repoName });
-      if (repo) {
-        let owner = repo.owner;
-        const response = await axios.get(
-          `https://api.github.com/repos/${owner}/${repoName}/commits`,
-        );
-        const data = await response.data;
-        if (response) {
-          let commits = "";
-          if (data.length > 0) {
-            data.forEach((entity) => {
-              commits += `Commit Message: ${entity.commit.message} \nAuthor: ${entity.author.login}\n\n`;
-            });
-          }
-
-          if (commits.length <= 2000) {
-            message.reply({ content: commits });
-          } else {
-            const chunks = commits.match(/[\s\S]{1,2000}/g);
-            for (const chunk of chunks) {
-              await message.reply({ content: chunk });
-            }
-          }
-        }
-      } else {
-        message.reply({ content: "No Repository found!!!" });
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  } else if (message.content.startsWith("!getIssues")) {
-    let repoName = message.content.split(" ")[1];
-    let repo = await User.findOne({ repoName: repoName });
-
-    if (repo) {
-      let owner = repo.owner;
-      const response = await axios.get(
-        `https://api.github.com/repos/${owner}/${repoName}/issues`,
-      );
-      const data = await response.data;
-      let issues = "";
-      if (data) {
-        if (data.length > 0) {
-          data.forEach((entity) => {
-            issues += `Issue number: ${entity.number} \nIssue Title: ${entity.title} \nIssue Body: ${entity.body}\n\n`;
-          });
-        }
-
-        if (issues.length <= 2000) {
-          message.reply({ content: issues });
-        } else {
-          const chunks = issues.match(/[\s\S]{1,2000}/g);
-          for (const chunk of chunks) {
-            await message.reply({ content: chunk });
-          }
-        }
-      }
-    } else {
-      message.reply({
-        content: "No Repository found!!!",
-      });
-    }
-  } else if (message.content.startsWith("!getPullRequests")) {
-    let repoName = message.content.split(" ")[1];
-
-    try {
-      let repo = await User.findOne({ repoName: repoName });
-      if (repo) {
-        let owner = repo.owner;
-        const response = await axios.get(
-          `https://api.github.com/repos/${owner}/${repoName}/pulls`,
-        );
-        const data = await response.data;
-        let prs = "";
-        if (data) {
-          if (data.length > 0) {
-            data.forEach((entity) => {
-              prs += `Pull Request number: ${entity.number} \nPull Request Title: ${entity.title} \nPull Request Body: ${entity.body} \nPull Request State: ${entity.state}\n\n`;
-            });
-          }
-
-          if (prs.length <= 2000) {
-            message.reply({ content: prs });
-          } else {
-            const chunks = prs.match(/[\s\S]{1,2000}/g);
-            for (const chunk of chunks) {
-              await message.reply({ content: chunk });
-            }
-          }
-        }
-      } else {
-        message.reply({
-          content: "No Repository found!!!",
-        });
-      }
-    } catch (error) {
-      message.reply({
-        content: "No Pull requests in this repository",
-      });
-    }
   } else if (message.content.startsWith("!untrack")) {
     try {
       const repoName = message.content.split(" ")[1];
@@ -259,7 +266,7 @@ client.on("messageCreate", async (message) => {
           const githubHookId = await getGithubWebHook(
             token.accessToken,
             repo.owner,
-            repoName,
+            repoName
           );
 
           await deleteWebHook(client, webhookId, guildId);
@@ -268,7 +275,7 @@ client.on("messageCreate", async (message) => {
             token.accessToken,
             repo.owner,
             repoName,
-            githubHookId[0].id,
+            githubHookId[0].id
           );
 
           await User.deleteOne({ webHook: webhookId });
@@ -285,7 +292,24 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-client.login(process.env.RESET_TOKEN);
+const rest = new REST({ version: "10" }).setToken(process.env.RESET_TOKEN);
+(async () => {
+  const commands = [commits, pulls, issues];
+  try {
+    console.log("Started refreshing application (/) commands.");
+    const guildId = process.env.GUILD_ID;
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
+      {
+        body: commands,
+      }
+    );
+    client.login(process.env.RESET_TOKEN);
+  } catch (err) {
+    console.log(err);
+  }
+})();
+
 app.listen(3000, () => {
   console.log("Server started");
 });
