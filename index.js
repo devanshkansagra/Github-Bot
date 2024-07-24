@@ -18,8 +18,17 @@ const {
 const commits = require("./commands/commits");
 const pulls = require("./commands/pulls");
 const issues = require("./commands/issues");
+const auth = require("./commands/auth");
+const track = require("./commands/track");
+const untrack = require("./commands/untrack");
 
-const { REST, Routes, Client, GatewayIntentBits } = require("discord.js");
+const {
+  REST,
+  Routes,
+  Client,
+  GatewayIntentBits,
+  IntegrationApplication,
+} = require("discord.js");
 const TokenDoc = require("./models/tokenSchema");
 const client = new Client({
   intents: [
@@ -64,13 +73,84 @@ app.get("/", (req, res) => {
 
 client.on("interactionCreate", async (interaction) => {
   if (interaction.isChatInputCommand()) {
+    if (interaction.commandName === "authorize") {
+      const token = interaction.options.data[0].value.toString();
+      const guildId = interaction.guildId;
+
+      const validateToken = await TokenDoc.findOne({ accessToken: token });
+      if (validateToken) {
+        interaction.reply("You are already authorized");
+      } else {
+        const newToken = new TokenDoc({ guildId: guildId, accessToken: token });
+        const saveToken = await newToken.save();
+        if (saveToken) {
+          interaction.reply("You are authorized successfully");
+        } else {
+          interaction.reply("Unable to authorize");
+        }
+      }
+    }
+    if (interaction.commandName === "track") {
+      const repoUrl = interaction.options.data[0].value;
+      const guildId = interaction.guildId;
+      const channelId = interaction.channelId;
+      const repoName = repoUrl.split("/").pop();
+
+      const owner = new URL(repoUrl).pathname.split("/")[1];
+
+      try {
+        const validateUrl = await User.findOne({ repoUrl: repoUrl });
+        const isAuthenticated = await TokenDoc.findOne({ guildId: guildId });
+
+        if (!isAuthenticated) {
+          interaction.reply("You are not authorized");
+        }
+        if (validateUrl) {
+          interaction.reply("This repository is already being tracked");
+        } else {
+          const webhook = await createWebHook(client, channelId, repoName);
+
+          const link = await linkWithGithub(
+            isAuthenticated.accessToken,
+            owner,
+            repoName,
+            webhook.url,
+          );
+          if (link) {
+            console.log("Integrated with github");
+          }
+
+          const newUser = new User({
+            guildId: guildId,
+            channelId: channelId,
+            repoUrl: repoUrl,
+            repoName: repoName,
+            owner: owner,
+            webHook: webhook.id,
+          });
+
+          const userSave = await newUser.save();
+
+          if (userSave) {
+            interaction.reply("Tracking the repository: " + repoName);
+          } else {
+            interaction.reply("Unable to track the repository");
+          }
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
     if (interaction.commandName === "commits") {
       try {
         const repository = interaction.options.data[0].value
           .split("/")[1]
           .toString();
+        const owner = interaction.options.data[0].value
+          .split("/")[0]
+          .toString();
         const repoName = interaction.options.data[0].value.toString();
-        let repo = await User.findOne({ repoName: repository });
+        let repo = await User.findOne({ repoName: repository, owner: owner });
         if (repo) {
           const response = await axios.get(
             `https://api.github.com/repos/${repoName}/commits`,
@@ -100,8 +180,11 @@ client.on("interactionCreate", async (interaction) => {
         const repository = interaction.options.data[0].value
           .split("/")[1]
           .toString();
+        const owner = interaction.options.data[0].value
+          .split("/")[0]
+          .toString();
         const repoName = interaction.options.data[0].value.toString();
-        let repo = await User.findOne({ repoName: repository });
+        let repo = await User.findOne({ repoName: repository, owner: owner });
         if (repo) {
           const response = await axios.get(
             `https://api.github.com/repos/${repoName}/pulls`,
@@ -135,8 +218,11 @@ client.on("interactionCreate", async (interaction) => {
         const repository = interaction.options.data[0].value
           .split("/")[1]
           .toString();
+        const owner = interaction.options.data[0].value
+          .split("/")[0]
+          .toString();
         const repoName = interaction.options.data[0].value.toString();
-        let repo = await User.findOne({ repoName: repository });
+        let repo = await User.findOne({ repoName: repository, owner: owner });
         if (repo) {
           const response = await axios.get(
             `https://api.github.com/repos/${repoName}/issues`,
@@ -165,95 +251,9 @@ client.on("interactionCreate", async (interaction) => {
         console.log("Error", error);
       }
     }
-  }
-});
-
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
-
-  if (message.content.startsWith("!settoken")) {
-    const token = message.content.split(" ")[1];
-
-    const guildId = message.guildId;
-
-    const validateToken = await TokenDoc.findOne({ accessToken: token });
-    if (validateToken) {
-      message.reply({ content: "Token is set already" });
-    } else {
-      const newToken = new TokenDoc({ guildId: guildId, accessToken: token });
-      const saveToken = await newToken.save();
-      if (saveToken) {
-        message.reply({
-          content:
-            "Github access token is set successfully, you are authorized!",
-        });
-      } else {
-        message.reply({
-          content: "Unable to set the access token",
-        });
-      }
-    }
-  }
-
-  if (message.content.startsWith("!track")) {
-    let repoUrl = message.content.split(" ")[1];
-    let guildId = message.guildId;
-    let channelId = message.channelId;
-    let repoName = repoUrl.split("/").pop();
-
-    const owner = new URL(repoUrl).pathname.split("/")[1];
-
-    try {
-      const validateUrl = await User.findOne({ repoUrl: repoUrl });
-
-      const isAuthenticated = await TokenDoc.findOne({ guildId: guildId });
-
-      if (!isAuthenticated) {
-        message.reply({
-          content:
-            "Not authenticated!. Please use !settoken <GITHUB_PERSONAL_ACCESS_TOKEN> command to authorize",
-        });
-      } else if (validateUrl) {
-        message.reply({
-          content: "This repository is already being tracked",
-        });
-      } else {
-        const webhook = await createWebHook(client, channelId, repoName);
-
-        const link = await linkWithGithub(
-          isAuthenticated.accessToken,
-          owner,
-          repoName,
-          webhook.url,
-        );
-        if (link) {
-          console.log("Integrated with github");
-        }
-
-        const newUser = new User({
-          guildId: guildId,
-          channelId: channelId,
-          repoUrl: repoUrl,
-          repoName: repoName,
-          owner: owner,
-          webHook: webhook.id,
-        });
-
-        const userSave = await newUser.save();
-
-        if (userSave) {
-          message.reply({
-            content: "Tracking the repository: " + repoName,
-          });
-        }
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  } else if (message.content.startsWith("!untrack")) {
-    try {
-      const repoName = message.content.split(" ")[1];
-      const guildId = message.guildId;
+    if (interaction.commandName === "untrack") {
+      const repoName = interaction.options.data[0].value.split("/")[1];
+      const guildId = interaction.guildId;
       try {
         const repo = await User.findOne({
           repoName: repoName,
@@ -269,23 +269,41 @@ client.on("messageCreate", async (message) => {
             repoName,
           );
 
-          await deleteWebHook(client, webhookId, guildId);
+          const deleteHook = await deleteWebHook(client, webhookId, guildId);
 
-          await unlinkWithGithub(
+          const unlink = await unlinkWithGithub(
             token.accessToken,
             repo.owner,
             repoName,
             githubHookId[0].id,
           );
 
-          await User.deleteOne({ webHook: webhookId });
-          message.reply({ content: "Repository is untracked" });
+          const deleteUser = await User.deleteOne({ webHook: webhookId });
+
+          if (deleteHook) {
+            if (unlink) {
+              if (deleteUser) {
+                interaction.reply("Repository is untracked");
+              } else {
+                interaction.reply("Unable to delete user");
+              }
+            } else {
+              interaction.reply("Unable to unlink with github");
+            }
+          } else {
+            interaction.reply("Unable to delete webhook");
+          }
         }
       } catch (error) {
         console.log(error);
       }
-    } catch (error) {}
-  } else if (message.content === "Hi") {
+    }
+  }
+});
+
+client.on("messageCreate", async (message) => {
+  if (message.author.bot) return;
+  else if (message.content === "Hi") {
     message.reply({
       content: `Hi! ${message.author.username}`,
     });
@@ -294,7 +312,7 @@ client.on("messageCreate", async (message) => {
 
 const rest = new REST({ version: "10" }).setToken(process.env.RESET_TOKEN);
 (async () => {
-  const commands = [commits, pulls, issues];
+  const commands = [commits, pulls, issues, auth, track, untrack];
   try {
     console.log("Started refreshing application (/) commands.");
     const guildId = process.env.GUILD_ID;
