@@ -15,7 +15,20 @@ const {
   unlinkWithGithub,
 } = require("./functions/webhookFunctions");
 
-const { Client, GatewayIntentBits } = require("discord.js");
+const commits = require("./commands/commits");
+const pulls = require("./commands/pulls");
+const issues = require("./commands/issues");
+const auth = require("./commands/auth");
+const track = require("./commands/track");
+const untrack = require("./commands/untrack");
+
+const {
+  REST,
+  Routes,
+  Client,
+  GatewayIntentBits,
+  IntegrationApplication,
+} = require("discord.js");
 const TokenDoc = require("./models/tokenSchema");
 const client = new Client({
   intents: [
@@ -58,195 +71,189 @@ app.get("/", (req, res) => {
   res.send("Hello world");
 });
 
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
+client.on("interactionCreate", async (interaction) => {
+  if (interaction.isChatInputCommand()) {
+    if (interaction.commandName === "authorize") {
+      const token = interaction.options.data[0].value.toString();
+      const guildId = interaction.guildId;
 
-  if (message.content.startsWith("!settoken")) {
-    const token = message.content.split(" ")[1];
-
-    const guildId = message.guildId;
-
-    const validateToken = await TokenDoc.findOne({ accessToken: token });
-    if (validateToken) {
-      message.reply({ content: "Token is set already" });
-    } else {
-      const newToken = new TokenDoc({ guildId: guildId, accessToken: token });
-      const saveToken = await newToken.save();
-      if (saveToken) {
-        message.reply({
-          content:
-            "Github access token is set successfully, you are authorized!",
-        });
+      const validateToken = await TokenDoc.findOne({ accessToken: token });
+      if (validateToken) {
+        interaction.reply("You are already authorized");
       } else {
-        message.reply({
-          content: "Unable to set the access token",
-        });
-      }
-    }
-  }
-
-  if (message.content.startsWith("!track")) {
-    let repoUrl = message.content.split(" ")[1];
-    let guildId = message.guildId;
-    let channelId = message.channelId;
-    let repoName = repoUrl.split("/").pop();
-
-    const owner = new URL(repoUrl).pathname.split("/")[1];
-
-    try {
-      const validateUrl = await User.findOne({ repoUrl: repoUrl });
-
-      const isAuthenticated = await TokenDoc.findOne({ guildId: guildId });
-
-      if (!isAuthenticated) {
-        message.reply({
-          content:
-            "Not authenticated!. Please use !settoken <GITHUB_PERSONAL_ACCESS_TOKEN> command to authorize",
-        });
-      } else if (validateUrl) {
-        message.reply({
-          content: "This repository is already being tracked",
-        });
-      } else {
-        const webhook = await createWebHook(client, channelId, repoName);
-
-        const link = await linkWithGithub(
-          isAuthenticated.accessToken,
-          owner,
-          repoName,
-          webhook.url,
-        );
-        if (link) {
-          console.log("Integrated with github");
-        }
-
-        const newUser = new User({
-          guildId: guildId,
-          channelId: channelId,
-          repoUrl: repoUrl,
-          repoName: repoName,
-          owner: owner,
-          webHook: webhook.id,
-        });
-
-        const userSave = await newUser.save();
-
-        if (userSave) {
-          message.reply({
-            content: "Tracking the repository: " + repoName,
-          });
-        }
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  } else if (message.content.startsWith("!getCommits")) {
-    try {
-      let repoName = message.content.split(" ")[1];
-      let repo = await User.findOne({ repoName: repoName });
-      if (repo) {
-        let owner = repo.owner;
-        const response = await axios.get(
-          `https://api.github.com/repos/${owner}/${repoName}/commits`,
-        );
-        const data = await response.data;
-        if (response) {
-          let commits = "";
-          if (data.length > 0) {
-            data.forEach((entity) => {
-              commits += `Commit Message: ${entity.commit.message} \nAuthor: ${entity.author.login}\n\n`;
-            });
-          }
-
-          if (commits.length <= 2000) {
-            message.reply({ content: commits });
-          } else {
-            const chunks = commits.match(/[\s\S]{1,2000}/g);
-            for (const chunk of chunks) {
-              await message.reply({ content: chunk });
-            }
-          }
-        }
-      } else {
-        message.reply({ content: "No Repository found!!!" });
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  } else if (message.content.startsWith("!getIssues")) {
-    let repoName = message.content.split(" ")[1];
-    let repo = await User.findOne({ repoName: repoName });
-
-    if (repo) {
-      let owner = repo.owner;
-      const response = await axios.get(
-        `https://api.github.com/repos/${owner}/${repoName}/issues`,
-      );
-      const data = await response.data;
-      let issues = "";
-      if (data) {
-        if (data.length > 0) {
-          data.forEach((entity) => {
-            issues += `Issue number: ${entity.number} \nIssue Title: ${entity.title} \nIssue Body: ${entity.body}\n\n`;
-          });
-        }
-
-        if (issues.length <= 2000) {
-          message.reply({ content: issues });
+        const newToken = new TokenDoc({ guildId: guildId, accessToken: token });
+        const saveToken = await newToken.save();
+        if (saveToken) {
+          interaction.reply("You are authorized successfully");
         } else {
-          const chunks = issues.match(/[\s\S]{1,2000}/g);
-          for (const chunk of chunks) {
-            await message.reply({ content: chunk });
-          }
+          interaction.reply("Unable to authorize");
         }
       }
-    } else {
-      message.reply({
-        content: "No Repository found!!!",
-      });
     }
-  } else if (message.content.startsWith("!getPullRequests")) {
-    let repoName = message.content.split(" ")[1];
+    if (interaction.commandName === "track") {
+      const repoUrl = interaction.options.data[0].value;
+      const guildId = interaction.guildId;
+      const channelId = interaction.channelId;
+      const repoName = repoUrl.split("/").pop();
 
-    try {
-      let repo = await User.findOne({ repoName: repoName });
-      if (repo) {
-        let owner = repo.owner;
-        const response = await axios.get(
-          `https://api.github.com/repos/${owner}/${repoName}/pulls`,
-        );
-        const data = await response.data;
-        let prs = "";
-        if (data) {
-          if (data.length > 0) {
-            data.forEach((entity) => {
-              prs += `Pull Request number: ${entity.number} \nPull Request Title: ${entity.title} \nPull Request Body: ${entity.body} \nPull Request State: ${entity.state}\n\n`;
-            });
+      const owner = new URL(repoUrl).pathname.split("/")[1];
+
+      try {
+        const validateUrl = await User.findOne({ repoUrl: repoUrl });
+        const isAuthenticated = await TokenDoc.findOne({ guildId: guildId });
+
+        if (!isAuthenticated) {
+          interaction.reply("You are not authorized");
+        }
+        if (validateUrl) {
+          interaction.reply("This repository is already being tracked");
+        } else {
+          const webhook = await createWebHook(client, channelId, repoName);
+
+          const link = await linkWithGithub(
+            isAuthenticated.accessToken,
+            owner,
+            repoName,
+            webhook.url,
+          );
+          if (link) {
+            console.log("Integrated with github");
           }
 
-          if (prs.length <= 2000) {
-            message.reply({ content: prs });
+          const newUser = new User({
+            guildId: guildId,
+            channelId: channelId,
+            repoUrl: repoUrl,
+            repoName: repoName,
+            owner: owner,
+            webHook: webhook.id,
+          });
+
+          const userSave = await newUser.save();
+
+          if (userSave) {
+            interaction.reply("Tracking the repository: " + repoName);
           } else {
-            const chunks = prs.match(/[\s\S]{1,2000}/g);
+            interaction.reply("Unable to track the repository");
+          }
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+    if (interaction.commandName === "commits") {
+      try {
+        const repository = interaction.options.data[0].value
+          .split("/")[1]
+          .toString();
+        const owner = interaction.options.data[0].value
+          .split("/")[0]
+          .toString();
+        const repoName = interaction.options.data[0].value.toString();
+        let repo = await User.findOne({ repoName: repository, owner: owner });
+        if (repo) {
+          const response = await axios.get(
+            `https://api.github.com/repos/${repoName}/commits`,
+          );
+          const data = await response.data;
+          let commitList = "";
+          data.forEach((entity) => {
+            commitList += `commit ${entity.sha}\nCommit Message: ${entity.commit.message}\nAuthor: ${entity.commit.author.name}\nDate: ${entity.commit.committer.date}\n\n`;
+          });
+          if (commitList.length <= 2000) {
+            interaction.reply(commitList);
+          } else {
+            const chunks = commitList.match(/[\s\S]{1,2000}/g);
             for (const chunk of chunks) {
-              await message.reply({ content: chunk });
+              await interaction.reply(chunk);
             }
           }
+        } else {
+          interaction.reply("No repository found!!!");
         }
-      } else {
-        message.reply({
-          content: "No Repository found!!!",
-        });
+      } catch (error) {
+        console.log("Error", error);
       }
-    } catch (error) {
-      message.reply({
-        content: "No Pull requests in this repository",
-      });
     }
-  } else if (message.content.startsWith("!untrack")) {
-    try {
-      const repoName = message.content.split(" ")[1];
-      const guildId = message.guildId;
+    if (interaction.commandName === "pulls") {
+      try {
+        const repository = interaction.options.data[0].value
+          .split("/")[1]
+          .toString();
+        const owner = interaction.options.data[0].value
+          .split("/")[0]
+          .toString();
+        const repoName = interaction.options.data[0].value.toString();
+        let repo = await User.findOne({ repoName: repository, owner: owner });
+        if (repo) {
+          const response = await axios.get(
+            `https://api.github.com/repos/${repoName}/pulls`,
+          );
+          const data = await response.data;
+          let prs = "";
+          if (data) {
+            if (data.length > 0) {
+              data.forEach((entity) => {
+                prs += `Pull Request number: ${entity.number} \nPull Request Title: ${entity.title} \nPull Request Body: ${entity.body} \nPull Request State: ${entity.state}\n\n`;
+              });
+            }
+            if (prs.length <= 2000) {
+              interaction.reply(prs);
+            } else {
+              const chunks = prs.match(/[\s\S]{1,2000}/g);
+              for (const chunk of chunks) {
+                await interaction.reply(chunk);
+              }
+            }
+          }
+        } else {
+          interaction.reply("No repository found!!!");
+        }
+      } catch (error) {
+        console.log("Error", error);
+      }
+    }
+    if (interaction.commandName === "issues") {
+      try {
+        const repository = interaction.options.data[0].value
+          .split("/")[1]
+          .toString();
+        const owner = interaction.options.data[0].value
+          .split("/")[0]
+          .toString();
+        const repoName = interaction.options.data[0].value.toString();
+        let repo = await User.findOne({ repoName: repository, owner: owner });
+        if (repo) {
+          const response = await axios.get(
+            `https://api.github.com/repos/${repoName}/issues`,
+          );
+          const data = await response.data;
+          let issuesList = "";
+          if (data) {
+            if (data.length > 0) {
+              data.forEach((entity) => {
+                issuesList += `Created By: ${entity.user.login}\nIssue number: ${entity.number} \nIssue Title: ${entity.title} \nIssue Body: ${entity.body}\nCreated At: ${entity.created_at}\nUpdated At: ${entity.updated_at}\nState: ${entity.state}\n\n`;
+              });
+            }
+            if (issuesList.length <= 2000) {
+              interaction.reply(issuesList);
+            } else {
+              const chunks = issuesList.match(/[\s\S]{1,2000}/g);
+              for (const chunk of chunks) {
+                await interaction.reply(chunk);
+              }
+            }
+          }
+        } else {
+          interaction.reply("No repository found!!!");
+        }
+      } catch (error) {
+        console.log("Error", error);
+      }
+    }
+    if (interaction.commandName === "untrack") {
+      const repoName = interaction.options.data[0].value.split("/")[1];
+      const guildId = interaction.guildId;
       try {
         const repo = await User.findOne({
           repoName: repoName,
@@ -262,9 +269,8 @@ client.on("messageCreate", async (message) => {
             repoName,
           );
 
-          await deleteWebHook(client, webhookId, guildId);
-
-          await unlinkWithGithub(
+          deleteWebHook(client, webhookId, guildId);
+          unlinkWithGithub(
             token.accessToken,
             repo.owner,
             repoName,
@@ -272,20 +278,42 @@ client.on("messageCreate", async (message) => {
           );
 
           await User.deleteOne({ webHook: webhookId });
-          message.reply({ content: "Repository is untracked" });
+          interaction.reply("Repository is untracked")
         }
       } catch (error) {
         console.log(error);
       }
-    } catch (error) {}
-  } else if (message.content === "Hi") {
+    }
+  }
+});
+
+client.on("messageCreate", async (message) => {
+  if (message.author.bot) return;
+  else if (message.content === "Hi") {
     message.reply({
       content: `Hi! ${message.author.username}`,
     });
   }
 });
 
-client.login(process.env.RESET_TOKEN);
+const rest = new REST({ version: "10" }).setToken(process.env.RESET_TOKEN);
+(async () => {
+  const commands = [commits, pulls, issues, auth, track, untrack];
+  try {
+    console.log("Started refreshing application (/) commands.");
+    const guildId = process.env.GUILD_ID;
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
+      {
+        body: commands,
+      },
+    );
+    client.login(process.env.RESET_TOKEN);
+  } catch (err) {
+    console.log(err);
+  }
+})();
+
 app.listen(3000, () => {
   console.log("Server started");
 });
