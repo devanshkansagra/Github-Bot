@@ -2,10 +2,10 @@ const { SlashCommandBuilder } = require("discord.js");
 
 const untrack = new SlashCommandBuilder()
   .setName("untrack")
-  .setDescription("untracks the GitHub Repository")
+  .setDescription("Untracks the GitHub repository")
   .addStringOption((option) =>
     option
-      .setName("repository-name")
+      .setName("repository")
       .setDescription("Username/RepositoryName")
       .setRequired(true),
   );

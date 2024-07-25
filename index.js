@@ -269,30 +269,16 @@ client.on("interactionCreate", async (interaction) => {
             repoName,
           );
 
-          const deleteHook = await deleteWebHook(client, webhookId, guildId);
-
-          const unlink = await unlinkWithGithub(
+          deleteWebHook(client, webhookId, guildId);
+          unlinkWithGithub(
             token.accessToken,
             repo.owner,
             repoName,
             githubHookId[0].id,
           );
 
-          const deleteUser = await User.deleteOne({ webHook: webhookId });
-
-          if (deleteHook) {
-            if (unlink) {
-              if (deleteUser) {
-                interaction.reply("Repository is untracked");
-              } else {
-                interaction.reply("Unable to delete user");
-              }
-            } else {
-              interaction.reply("Unable to unlink with github");
-            }
-          } else {
-            interaction.reply("Unable to delete webhook");
-          }
+          await User.deleteOne({ webHook: webhookId });
+          interaction.reply("Repository is untracked")
         }
       } catch (error) {
         console.log(error);
