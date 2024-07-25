@@ -1,4 +1,4 @@
-# Git-Repo-Tracker-Bot
+# Github-Bot
 
 This a discord bot which tracks the Github Repository. It is built using Node.js, Github REST API, Discord.js API.
 
@@ -10,12 +10,12 @@ This a discord bot which tracks the Github Repository. It is built using Node.js
 
 ## Commands for interaction
 
-- `!settoken <github_personal_access_token>` Authorize the github
-- `!track <github_repo_url>` Tracks the Repository
-- `!getCommits <github_repo_name>` List down all the commits of the tracking repository
-- `!getPullRequests <github_repo_name>` List down all the pull requests of the tracking repository.
-- `!getIssues <github_repo_name>` List down all the issues of the tracking repository
-- `!untrack <github_repo_name>` Untracks the github repository
+- `/authorize` Authorize the Github account
+- `/track` Tracks the github Repository
+- `/commits` Fetches the overall commits of the repository
+- `/pulls` Fetches overall pull requests of the repository.
+- `/issues` Fetches overall the issues of the repository
+- `/untrack` Untracks the github repository
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ This a discord bot which tracks the Github Repository. It is built using Node.js
 
 ## Installation
 
-- Clone the repository: `https://github.com/devanshkansagra/Git-Notifier`
+- Clone the repository: https://github.com/devanshkansagra/Github-Bot
 
 - Install node packages: `npm install`
 
@@ -32,8 +32,34 @@ This a discord bot which tracks the Github Repository. It is built using Node.js
 
 - Run this project: `npm start`
 
+## Setup of this bot to your Discord Server for development
+
+- Create your Discord Server
+
+- Go to user settings in Discord -> Advanced -> Turn on Developer Mode
+
+- Go to Discord developer portal (https://discord.com/developers/applications) -> Create new app (give name Github-Bot) -> Your application will be showed up
+
+- Go to your application -> OAuth2 -> Copy client id
+
+- Go Back -> Bot -> Copy Reset token
+
 ### Contents of `.env` file
 
 - `RESET_TOKEN` (get it from discord developer portal)
 - `CLIENT_ID` (get it from discord developer portal)
 - `DATABASE` (mongodb atlas database link)
+
+## Contribution Guidlines
+
+1. Fork this project
+
+2. Clone your Fork
+
+3. Create a branch
+
+4. Make changes
+
+5. Push the changes to that branch
+
+6. Create a pull request
