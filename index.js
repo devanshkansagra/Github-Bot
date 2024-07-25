@@ -278,7 +278,7 @@ client.on("interactionCreate", async (interaction) => {
           );
 
           await User.deleteOne({ webHook: webhookId });
-          interaction.reply("Repository is untracked")
+          interaction.reply("Repository is untracked");
         }
       } catch (error) {
         console.log(error);
