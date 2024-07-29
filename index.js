@@ -21,14 +21,22 @@ const issues = require("./commands/issues");
 const auth = require("./commands/auth");
 const track = require("./commands/track");
 const untrack = require("./commands/untrack");
+const issue = require("./commands/issue");
+
+const createIssue = require("./controllers/createIssue");
 
 const {
   REST,
   Routes,
   Client,
   GatewayIntentBits,
-  IntegrationApplication,
+  ActionRowBuilder,
+  Events,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } = require("discord.js");
+
 const TokenDoc = require("./models/tokenSchema");
 const client = new Client({
   intents: [
@@ -74,21 +82,20 @@ app.get("/", (req, res) => {
 client.on("interactionCreate", async (interaction) => {
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName === "authorize") {
-      const token = interaction.options.data[0].value.toString();
-      const guildId = interaction.guildId;
+      const modal = new ModalBuilder()
+        .setCustomId("authorize")
+        .setTitle("Authorize your github account");
 
-      const validateToken = await TokenDoc.findOne({ accessToken: token });
-      if (validateToken) {
-        interaction.reply("You are already authorized");
-      } else {
-        const newToken = new TokenDoc({ guildId: guildId, accessToken: token });
-        const saveToken = await newToken.save();
-        if (saveToken) {
-          interaction.reply("You are authorized successfully");
-        } else {
-          interaction.reply("Unable to authorize");
-        }
-      }
+      const accessToken = new TextInputBuilder()
+        .setCustomId("accessToken")
+        .setLabel("Github Access Token")
+        .setStyle(TextInputStyle.Short);
+
+      const tokenRow = new ActionRowBuilder().addComponents(accessToken);
+
+      modal.addComponents(tokenRow);
+
+      await interaction.showModal(modal);
     }
     if (interaction.commandName === "track") {
       const repoUrl = interaction.options.data[0].value;
@@ -251,6 +258,40 @@ client.on("interactionCreate", async (interaction) => {
         console.log("Error", error);
       }
     }
+    if (interaction.commandName === "issue") {
+      const modal = new ModalBuilder()
+        .setCustomId("issue")
+        .setTitle("Create a new issue");
+
+      const repository = new TextInputBuilder()
+        .setCustomId("repository")
+        .setLabel("Repository name (Username/RepoName)")
+        .setStyle(TextInputStyle.Short);
+
+      const issueTitle = new TextInputBuilder()
+        .setCustomId("title")
+        .setLabel("Issue title")
+        .setStyle(TextInputStyle.Short);
+
+      const issueDescription = new TextInputBuilder()
+        .setCustomId("description")
+        .setLabel("Issue Description")
+        .setStyle(TextInputStyle.Paragraph);
+
+      const issueLabel = new TextInputBuilder()
+        .setCustomId("label")
+        .setLabel("Issue Label")
+        .setStyle(TextInputStyle.Short);
+
+      const repoAction = new ActionRowBuilder().addComponents(repository);
+      const titleAction = new ActionRowBuilder().addComponents(issueTitle);
+      const descAction = new ActionRowBuilder().addComponents(issueDescription);
+      const labelAction = new ActionRowBuilder().addComponents(issueLabel);
+
+      modal.addComponents(repoAction, titleAction, descAction, labelAction);
+
+      await interaction.showModal(modal);
+    }
     if (interaction.commandName === "untrack") {
       const repoName = interaction.options.data[0].value.split("/")[1];
       const guildId = interaction.guildId;
@@ -287,6 +328,56 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isModalSubmit()) return;
+  else if (interaction.customId === "issue") {
+    const repository = interaction.fields.getTextInputValue("repository");
+    const title = interaction.fields.getTextInputValue("title");
+    const description = interaction.fields.getTextInputValue("description");
+    const label = interaction.fields.getTextInputValue("label").split(",");
+
+    try {
+      const repoName = repository.split("/")[1];
+      const owner = repository.split("/")[0];
+      const token = await TokenDoc.find({ guildId: interaction.guildId });
+      if (token) {
+        const authToken = token[0].accessToken;
+        const res = await createIssue(
+          title,
+          description,
+          label,
+          owner,
+          repoName,
+          authToken,
+        );
+        if (res) {
+          interaction.reply("Issue Created");
+        }
+      } else {
+        console.log("Token not fetched");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  } else if (interaction.customId === "authorize") {
+    const token = interaction.fields.getTextInputValue("accessToken");
+    const guildId = interaction.guildId;
+
+    const validateToken = await TokenDoc.findOne({ accessToken: token });
+    if (validateToken) {
+      interaction.reply("You are already authorized");
+    } else {
+      const newToken = new TokenDoc({ guildId: guildId, accessToken: token });
+      const saveToken = await newToken.save();
+      if (saveToken) {
+        interaction.reply("You are authorized successfully");
+      } else {
+        interaction.reply("Unable to authorize");
+      }
+    }
+  }
+});
+
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   else if (message.content === "Hi") {
@@ -298,7 +389,7 @@ client.on("messageCreate", async (message) => {
 
 const rest = new REST({ version: "10" }).setToken(process.env.RESET_TOKEN);
 (async () => {
-  const commands = [commits, pulls, issues, auth, track, untrack];
+  const commands = [commits, pulls, issues, auth, track, untrack, issue];
   try {
     console.log("Started refreshing application (/) commands.");
     const guildId = process.env.GUILD_ID;
