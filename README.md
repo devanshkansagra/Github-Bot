@@ -7,15 +7,17 @@ This a discord bot which tracks the Github Repository. It is built using Node.js
 - Track / Untrack the Github Repository
 - Notifies Discord Server Members regarding the New Commits Merged, New Pull Requests, New Issue Raised, Notifies Latest Releases.
 - Fetch the details like issues, PR's, Commits
+- Creates an issue in GitHub
 
 ## Commands for interaction
 
-- `/authorize` Authorize the Github account
-- `/track` Tracks the github Repository
-- `/commits` Fetches the overall commits of the repository
+- `/authorize` Authorize the Github account.
+- `/track` Tracks the GitHub Repository.
+- `/commits` Fetches the overall commits of the repository.
 - `/pulls` Fetches overall pull requests of the repository.
-- `/issues` Fetches overall the issues of the repository
-- `/untrack` Untracks the github repository
+- `/issues` Fetches overall the issues of the repository.
+- `/issue` Creates an issue in GitHub repository.
+- `/untrack` Untracks the GitHub repository.
 
 ## Prerequisites
 
