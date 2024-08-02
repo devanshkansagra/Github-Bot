@@ -51,6 +51,7 @@ This a discord bot which tracks the Github Repository. It is built using Node.js
 - `RESET_TOKEN` (get it from discord developer portal)
 - `CLIENT_ID` (get it from discord developer portal)
 - `DATABASE` (mongodb atlas database link)
+- `GUILD_ID` (discord server Guild ID)
 
 ## Contribution Guidlines
 
