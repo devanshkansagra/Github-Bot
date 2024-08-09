@@ -48,6 +48,8 @@ const client = new Client({
 
 const app = express();
 
+const port = 4000;
+
 const corsOptions = {
   origin: "http://api.github.com/",
   methods: ["GET", "POST"],
@@ -121,7 +123,7 @@ client.on("interactionCreate", async (interaction) => {
             isAuthenticated.accessToken,
             owner,
             repoName,
-            webhook.url
+            webhook.url,
           );
           if (link) {
             console.log("Integrated with github");
@@ -160,7 +162,7 @@ client.on("interactionCreate", async (interaction) => {
         let repo = await User.findOne({ repoName: repository, owner: owner });
         if (repo) {
           const response = await axios.get(
-            `https://api.github.com/repos/${repoName}/commits`
+            `https://api.github.com/repos/${repoName}/commits`,
           );
           const data = await response.data;
           let commitList = "";
@@ -194,7 +196,7 @@ client.on("interactionCreate", async (interaction) => {
         let repo = await User.findOne({ repoName: repository, owner: owner });
         if (repo) {
           const response = await axios.get(
-            `https://api.github.com/repos/${repoName}/pulls`
+            `https://api.github.com/repos/${repoName}/pulls`,
           );
           const data = await response.data;
           let prs = "";
@@ -232,7 +234,7 @@ client.on("interactionCreate", async (interaction) => {
         let repo = await User.findOne({ repoName: repository, owner: owner });
         if (repo) {
           const response = await axios.get(
-            `https://api.github.com/repos/${repoName}/issues`
+            `https://api.github.com/repos/${repoName}/issues`,
           );
           const data = await response.data;
           let issuesList = "";
@@ -307,7 +309,7 @@ client.on("interactionCreate", async (interaction) => {
           const githubHookId = await getGithubWebHook(
             token.accessToken,
             repo.owner,
-            repoName
+            repoName,
           );
 
           deleteWebHook(client, webhookId, guildId);
@@ -315,7 +317,7 @@ client.on("interactionCreate", async (interaction) => {
             token.accessToken,
             repo.owner,
             repoName,
-            githubHookId[0].id
+            githubHookId[0].id,
           );
 
           await User.deleteOne({ webHook: webhookId });
@@ -348,7 +350,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           label,
           owner,
           repoName,
-          authToken
+          authToken,
         );
         if (res) {
           interaction.reply("Issue Created");
@@ -397,7 +399,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.RESET_TOKEN);
       Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
       {
         body: commands,
-      }
+      },
     );
     client.login(process.env.RESET_TOKEN);
   } catch (err) {
@@ -405,6 +407,6 @@ const rest = new REST({ version: "10" }).setToken(process.env.RESET_TOKEN);
   }
 })();
 
-app.listen(3000, () => {
-  console.log("Server started");
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}/`);
 });
