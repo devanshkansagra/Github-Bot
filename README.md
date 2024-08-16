@@ -1,5 +1,8 @@
 # Github-Bot
 
+
+https://github.com/user-attachments/assets/9ad6326a-2717-4588-8f27-7e707fc256a3
+
 This a discord bot which tracks the Github Repository. It is built using Node.js, Github REST API, Discord.js API.
 
 ## Functions of this bot
@@ -45,6 +48,8 @@ This a discord bot which tracks the Github Repository. It is built using Node.js
 - Go to your application -> OAuth2 -> Copy client id
 
 - Go Back -> Bot -> Copy Reset token
+
+- To get GitHub Access Token, please follow: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
 
 ### Contents of `.env` file
 
