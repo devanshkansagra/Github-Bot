@@ -23,6 +23,8 @@ const track = require("./commands/track");
 const untrack = require("./commands/untrack");
 const issue = require("./commands/issue");
 
+const issueEmbed = require("./embeds/issueEmbed");
+
 const createIssue = require("./controllers/createIssue");
 
 const {
@@ -62,7 +64,7 @@ app.use(bodyParser.json());
 
 dotenv.config({ path: "./.env" });
 
-const DB = process.env.DATABASE;
+const DB = `mongodb://localhost:27018/GitHubBot`;
 
 mongoose
   .connect(DB)
@@ -123,7 +125,7 @@ client.on("interactionCreate", async (interaction) => {
             isAuthenticated.accessToken,
             owner,
             repoName,
-            webhook.url,
+            webhook.url
           );
           if (link) {
             console.log("Integrated with github");
@@ -162,7 +164,7 @@ client.on("interactionCreate", async (interaction) => {
         let repo = await User.findOne({ repoName: repository, owner: owner });
         if (repo) {
           const response = await axios.get(
-            `https://api.github.com/repos/${repoName}/commits`,
+            `https://api.github.com/repos/${repoName}/commits`
           );
           const data = await response.data;
           let commitList = "";
@@ -196,7 +198,7 @@ client.on("interactionCreate", async (interaction) => {
         let repo = await User.findOne({ repoName: repository, owner: owner });
         if (repo) {
           const response = await axios.get(
-            `https://api.github.com/repos/${repoName}/pulls`,
+            `https://api.github.com/repos/${repoName}/pulls`
           );
           const data = await response.data;
           let prs = "";
@@ -234,24 +236,31 @@ client.on("interactionCreate", async (interaction) => {
         let repo = await User.findOne({ repoName: repository, owner: owner });
         if (repo) {
           const response = await axios.get(
-            `https://api.github.com/repos/${repoName}/issues`,
+            `https://api.github.com/repos/${repoName}/issues`
           );
           const data = await response.data;
+
+          const channel = interaction.guild.channels.cache.get(
+            interaction.channelId
+          );
+
           let issuesList = "";
           if (data) {
-            if (data.length > 0) {
-              data.forEach((entity) => {
-                issuesList += `Created By: ${entity.user.login}\nIssue number: ${entity.number} \nIssue Title: ${entity.title} \nIssue Body: ${entity.body}\nCreated At: ${entity.created_at}\nUpdated At: ${entity.updated_at}\nState: ${entity.state}\n\n`;
+            data.forEach((entity) => {
+              channel.send({
+                embeds: [
+                  issueEmbed(
+                    entity.html_url,
+                    entity.number,
+                    entity.title,
+                    entity.user.login,
+                    entity.state,
+                    entity.user.avatar_url,
+                    entity.body
+                  ),
+                ],
               });
-            }
-            if (issuesList.length <= 2000) {
-              interaction.reply(issuesList);
-            } else {
-              const chunks = issuesList.match(/[\s\S]{1,2000}/g);
-              for (const chunk of chunks) {
-                await interaction.reply(chunk);
-              }
-            }
+            });
           }
         } else {
           interaction.reply("No repository found!!!");
@@ -309,7 +318,7 @@ client.on("interactionCreate", async (interaction) => {
           const githubHookId = await getGithubWebHook(
             token.accessToken,
             repo.owner,
-            repoName,
+            repoName
           );
 
           deleteWebHook(client, webhookId, guildId);
@@ -317,7 +326,7 @@ client.on("interactionCreate", async (interaction) => {
             token.accessToken,
             repo.owner,
             repoName,
-            githubHookId[0].id,
+            githubHookId[0].id
           );
 
           await User.deleteOne({ webHook: webhookId });
@@ -350,7 +359,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           label,
           owner,
           repoName,
-          authToken,
+          authToken
         );
         if (res) {
           interaction.reply("Issue Created");
@@ -399,7 +408,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.RESET_TOKEN);
       Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
       {
         body: commands,
-      },
+      }
     );
     client.login(process.env.RESET_TOKEN);
   } catch (err) {
