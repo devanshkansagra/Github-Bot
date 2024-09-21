@@ -23,7 +23,7 @@ const track = require("./commands/track");
 const untrack = require("./commands/untrack");
 const issue = require("./commands/issue");
 
-const issueEmbed = require("./embeds/issueEmbed");
+const issueEmbed = require("./embeds/issues");
 
 const createIssue = require("./controllers/createIssue");
 
@@ -40,6 +40,7 @@ const {
 } = require("discord.js");
 
 const TokenDoc = require("./models/tokenSchema");
+const pullsEmbed = require("./embeds/pulls");
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -194,6 +195,10 @@ client.on("interactionCreate", async (interaction) => {
         const owner = interaction.options.data[0].value
           .split("/")[0]
           .toString();
+
+        const channel = interaction.guild.channels.cache.get(
+          interaction.channelId
+        );
         const repoName = interaction.options.data[0].value.toString();
         let repo = await User.findOne({ repoName: repository, owner: owner });
         if (repo) {
@@ -201,21 +206,22 @@ client.on("interactionCreate", async (interaction) => {
             `https://api.github.com/repos/${repoName}/pulls`
           );
           const data = await response.data;
-          let prs = "";
           if (data) {
-            if (data.length > 0) {
-              data.forEach((entity) => {
-                prs += `Pull Request number: ${entity.number} \nPull Request Title: ${entity.title} \nPull Request Body: ${entity.body} \nPull Request State: ${entity.state}\n\n`;
+            data.forEach(async (entity) => {
+              channel.send({
+                embeds: [
+                  await pullsEmbed(
+                    entity.html_url,
+                    entity.number,
+                    entity.title,
+                    entity.user.login,
+                    entity.state,
+                    entity.user.avatar_url,
+                    entity.body
+                  ),
+                ],
               });
-            }
-            if (prs.length <= 2000) {
-              interaction.reply(prs);
-            } else {
-              const chunks = prs.match(/[\s\S]{1,2000}/g);
-              for (const chunk of chunks) {
-                await interaction.reply(chunk);
-              }
-            }
+            });
           }
         } else {
           interaction.reply("No repository found!!!");
@@ -244,7 +250,6 @@ client.on("interactionCreate", async (interaction) => {
             interaction.channelId
           );
 
-          let issuesList = "";
           if (data) {
             data.forEach((entity) => {
               channel.send({

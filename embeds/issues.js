@@ -4,7 +4,7 @@ const { EmbedBuilder } = require("discord.js");
 const issueEmbed = (html_url, num, title, by, state, avatar, body) => {
   return new EmbedBuilder()
     .setColor(0x32cd32)
-    .setTitle("#" + num + " - " + title)
+    .setTitle("Issue: " + "#" + num + " - " + title)
     .setURL(html_url)
     .setAuthor({
       name: by,
