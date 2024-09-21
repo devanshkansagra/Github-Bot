@@ -207,7 +207,7 @@ client.on("interactionCreate", async (interaction) => {
           );
           const data = await response.data;
           if (data) {
-            await interaction.reply('Fetching all the pull requests');
+            await interaction.reply("Fetching all the pull requests");
 
             data.forEach((entity) => {
               channel.send({
@@ -225,7 +225,7 @@ client.on("interactionCreate", async (interaction) => {
               });
             });
           } else {
-            await interaction.followUp('No pull requests found');
+            await interaction.followUp("No pull requests found");
           }
         } else {
           interaction.reply("No repository found!!!");
@@ -255,8 +255,7 @@ client.on("interactionCreate", async (interaction) => {
           );
 
           if (data) {
-
-            await interaction.reply('Fetching the issues...');
+            await interaction.reply("Fetching the issues...");
             data.forEach((entity) => {
               channel.send({
                 embeds: [
@@ -272,8 +271,7 @@ client.on("interactionCreate", async (interaction) => {
                 ],
               });
             });
-          }
-          else {
+          } else {
             await interaction.followUp("No issues found");
           }
         } else {
