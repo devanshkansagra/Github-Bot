@@ -1,5 +1,8 @@
 # Github-Bot
 
+![image](https://github.com/user-attachments/assets/a5390593-2528-44d2-af31-631754cef8ef)
+
+### Demo Video
 https://github.com/user-attachments/assets/9ad6326a-2717-4588-8f27-7e707fc256a3
 
 This a discord bot which tracks the Github Repository. It is built using Node.js, Github REST API, Discord.js API.
