@@ -22,10 +22,14 @@ const auth = require("./commands/auth");
 const track = require("./commands/track");
 const untrack = require("./commands/untrack");
 const issue = require("./commands/issue");
+const searchissue = require("./commands/searchissue");
 
 const issueEmbed = require("./embeds/issues");
+const pullsEmbed = require("./embeds/pulls");
+const searchIssueEmbed = require("./embeds/searchIssueEmbed");
 
 const createIssue = require("./controllers/createIssue");
+const searchIssueController = require("./controllers/searchissue");
 
 const {
   REST,
@@ -40,7 +44,7 @@ const {
 } = require("discord.js");
 
 const TokenDoc = require("./models/tokenSchema");
-const pullsEmbed = require("./embeds/pulls");
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -315,6 +319,45 @@ client.on("interactionCreate", async (interaction) => {
 
       await interaction.showModal(modal);
     }
+    if (interaction.commandName === "searchissue") {
+      const repoName = interaction.options.data[0].value.split("/")[1];
+      const owner = interaction.options.data[0].value.split("/")[0];
+      const issue_number = interaction.options.data[1].value;
+      const guildId = interaction.guildId;
+      const channel = interaction.guild.channels.cache.get(
+        interaction.channelId
+      );
+      try {
+        const token = await TokenDoc.findOne({ guildId: guildId });
+        const search = await searchIssueController(
+          repoName,
+          owner,
+          issue_number,
+          token.accessToken
+        );
+        if (search) {
+          const data = search.data;
+          await interaction.reply("Fetching the issue...");
+          channel.send({
+            embeds: [
+              searchIssueEmbed(
+                data.html_url,
+                data.number,
+                data.title,
+                data.user.login,
+                data.state,
+                data.user.avatar_url,
+                data.body
+              ),
+            ],
+          });
+        } else {
+          console.log("Issue with issue number: ", issue_number, " not found");
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
     if (interaction.commandName === "untrack") {
       const repoName = interaction.options.data[0].value.split("/")[1];
       const guildId = interaction.guildId;
@@ -412,7 +455,16 @@ client.on("messageCreate", async (message) => {
 
 const rest = new REST({ version: "10" }).setToken(process.env.RESET_TOKEN);
 (async () => {
-  const commands = [commits, pulls, issues, auth, track, untrack, issue];
+  const commands = [
+    auth,
+    commits,
+    pulls,
+    issues,
+    track,
+    untrack,
+    issue,
+    searchissue,
+  ];
   try {
     console.log("Started refreshing application (/) commands.");
     const guildId = process.env.GUILD_ID;
